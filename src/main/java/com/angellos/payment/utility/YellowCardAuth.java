@@ -1,5 +1,7 @@
 package com.angellos.payment.utility;
 
+import com.angellos.payment.config.YellowCardProperties;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -11,20 +13,21 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.TreeMap;
 
+@RequiredArgsConstructor
 public class YellowCardAuth {
 
     private static final String API_KEY = "c5315180696a51ab885023bdc1ae3c0e";
-
     private static final String API_SECRET = "81473a4ca26a28203aa4a8e26afe571bf097ec5a2a5c2acd41c83a7968c4cf3b";
 
+    private final YellowCardProperties yellowCardProperties;
 
 
-    public static HttpHeaders yellowCardAuth(String path, RequestMethod method, Map<String, Object> body){
-        return yellowCardAuth(API_KEY, API_SECRET, path, method, body);
+    public static HttpHeaders generateAuthorizationHeaders(String path, RequestMethod method, Map<String, Object> body){
+        return generateAuthorizationHeaders(API_KEY, API_SECRET, path, method, body);
     }
 
-    public static HttpHeaders yellowCardAuth(String apiKey, String apiSecret,
-                                             String path, RequestMethod method, Map<String, Object> body) {
+    public static HttpHeaders generateAuthorizationHeaders(String apiKey, String apiSecret,
+                                                           String path, RequestMethod method, Map<String, Object> body) {
         // Get the current timestamp in ISO format
         String date = Instant.now().toString();
 

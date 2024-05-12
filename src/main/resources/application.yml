@@ -11,13 +11,17 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+  security:
+    user:
+      name: angellos
+      password: 1234
+
   jpa:
     hibernate:
       ddl-auto: none
     open-in-view: false
     properties:
       hibernate.format_sql: true
-#      hibernate.dialect: org.hibernate.dialect.PostgreSQL10Dialect
       hibernate.dialect: org.hibernate.dialect.H2Dialect
 
 #  datasource:
@@ -27,19 +31,19 @@ spring:
 
 
   datasource:
-    url: jdbc:h2:mem:testdb  # In-memory database named 'testdb'
+    url: jdbc:h2:mem:testdb
     driverClassName: org.h2.Driver
     username: sa
-    password: admin  # You can change these credentials for production
+    password: admin
     jpa:
       hibernate:
-        ddl-auto: update  # Update schema if needed (optional)
+        ddl-auto: update
 
 yellow-card:
   uri: localhost
   port: 8018
-  api-key: 'efcba0bd615f42c88d9bfd01b002642baf7033bac54163918dc3545a17700ea98c5c44867ea4f0cdcbfd9e224129b10f9295d59e65c2f4fdab19463c9084e00254ed213dc3c6addeb731601e97c3aa83832f12ad9a905f622709f42d48b2c44c96f413c0054368fe8c69083f59095f66'
-  secret-key: 'efcba0bd615f42c88d9bfd01b002642baf7033bac54163918dc3545a17700ea98c5c44867ea4f0cdcbfd9e224129b10f9295d59e65c2f4fdab19463c9084e00254ed213dc3c6addeb731601e97c3aa83832f12ad9a905f622709f42d48b2c44c96f413c0054368fe8c69083f59095f66'
-  post_url: '${application.online}:8021/op/payment'
-  base_url: 'https://sandbox.api.yellowcard.io/business/channels'
+  api-key: 'c5315180696a51ab885023bdc1ae3c0e'
+  secret-key: '81473a4ca26a28203aa4a8e26afe571bf097ec5a2a5c2acd41c83a7968c4cf3b'
+  base_url: 'https://sandbox.api.yellowcard.io'
   token-prefix: 'YcHmacV1 %s:%s'
+

@@ -156,8 +156,6 @@ public class AppUtils {
      * This is used to join string to be used a request param
      * @param params This is the multivaluemap that contains the parameters
      * @return StringJoiner
-     * @author Ebenezer N.
-     * @createdAt 3rd July, 2023
      */
     public static StringJoiner getStringJoiner(Map<String, Object> params) {
         StringJoiner sj = new StringJoiner("&");

@@ -7,9 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("yellow-card")
 public class YellowCardProperties {
 
-    private String uri;
-
-    private int port;
+    private String baseUrl;
 
     private String apiKey;
 
@@ -19,6 +17,8 @@ public class YellowCardProperties {
 
     private String postUrl;
 
-    private String baseUrl;
+    private String uri;
+
+    private int port;
 
 }
