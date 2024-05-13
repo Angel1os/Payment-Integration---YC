@@ -47,6 +47,14 @@ sequenceId: A string representing the unique identifier of the payment request.
 accept (optional): A boolean value indicating approval (true) or denial (false) of the request. Defaults to false.
 Returns: A ResponseRecord object containing the response to the approval/denial action (success/failure and potentially additional details).
 
+9. Accept or Deny Collection Request (POST /approve)
+Description: This endpoint approves or denies a previously submitted payment request.
+Parameters:
+sequenceId: A string representing the unique identifier of the payment request.
+accept (optional): A boolean value indicating approval (true) or denial (false) of the request. Defaults to false.
+Returns: A ResponseRecord object containing the response to the approval/denial action (success/failure and additional details).
+
 
 Challenges with Payment Integration
 Error responses are not explicilty understood which makes debugging dificult
+for instance 400 Bad Request: "{ "message": "[instance failed to match exactly one schema (matched 2 out of 2)]", "code": "InvalidRequestBody" }"
