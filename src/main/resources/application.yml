@@ -16,28 +16,30 @@ spring:
       name: angellos
       password: 1234
 
-  jpa:
-    hibernate:
-      ddl-auto: none
-    open-in-view: false
-    properties:
-      hibernate.format_sql: true
-      hibernate.dialect: org.hibernate.dialect.H2Dialect
-
-#  datasource:
-#    url: jdbc:postgresql://192.168.250.209:5432/tbms
-#    username: softadmin
-#    password: ""
-
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings.trace: false
+      settings.web-allow-others: true
 
   datasource:
-    url: jdbc:h2:mem:testdb
-    driverClassName: org.h2.Driver
-    username: sa
-    password: admin
-    jpa:
-      hibernate:
-        ddl-auto: update
+    #    url: jdbc:h2:mem:default
+    url: jdbc:h2:file:.\data\db
+    username:
+    password:
+    driverClassName: "org.h2.Driver"
+  #    hikari:
+  #      schema: public
+
+  jpa:
+    spring.jpa.database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+#    properties:
+#      hibernate:
+#        dialect: org.hibernate.dialect.H2Dialect
 
 yellow-card:
   uri: localhost
@@ -46,4 +48,3 @@ yellow-card:
   secret-key: '81473a4ca26a28203aa4a8e26afe571bf097ec5a2a5c2acd41c83a7968c4cf3b'
   base_url: 'https://sandbox.api.yellowcard.io'
   token-prefix: 'YcHmacV1 %s:%s'
-

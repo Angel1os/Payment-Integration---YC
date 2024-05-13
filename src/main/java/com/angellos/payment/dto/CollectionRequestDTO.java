@@ -1,17 +1,14 @@
 package com.angellos.payment.dto;
 
 import com.angellos.payment.enums.CustomerType;
-import com.angellos.payment.enums.TransactionType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.util.UUID;
-
 @Data
-public class PaymentRequestDTO {
+public class CollectionRequestDTO {
 
     @NotBlank
     private String channelId;
@@ -31,17 +28,11 @@ public class PaymentRequestDTO {
 
     private String localAmount;
 
-    @NotBlank
-    private String reason;
+    private CRRecipientDTO recipient;
 
-    private PRSenderDTO sender;
-
-    private PRDestinationDTO destination;
+    private CRSourceDTO source;
 
     private Boolean forceAccept = false;
-
-    @Enumerated(EnumType.STRING)
-    private TransactionType transactionType;
 
     @Enumerated(EnumType.STRING)
     private CustomerType customerType = CustomerType.retail;

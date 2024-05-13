@@ -5,38 +5,58 @@ import com.angellos.payment.dto.PRDestinationDTO;
 import com.angellos.payment.dto.PaymentRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
 import com.angellos.payment.entity.Payment;
+import com.angellos.payment.enums.CountriesCodes;
 import com.angellos.payment.enums.CustomerType;
+import com.angellos.payment.enums.PaymentStatus;
+import com.angellos.payment.enums.TransactionType;
 import com.angellos.payment.external.YellowCardService;
 import com.angellos.payment.repository.PaymentRepository;
 import com.angellos.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static com.angellos.payment.utility.AppUtils.getResponseDto;
-import static com.angellos.payment.utility.AppUtils.isNotNullOrEmpty;
+import static com.angellos.payment.enums.CountriesCodes.getKeyValues;
+import static com.angellos.payment.utility.AppUtils.*;
 
 @Service
 @Slf4j
 @AllArgsConstructor
 public class PaymentServiceImpl implements PaymentService {
 
-    YellowCardService yellowCardService;
-
-    YellowCardProperties yellowCardProperties;
+    private final YellowCardService yellowCardService;
 
     private final PaymentRepository paymentRepository;
 
-    RestTemplate restTemplate;
+    @Override
+    public ResponseEntity<ResponseRecord> getCountries() {
+        ResponseRecord response;
+        try {
+            var res = getKeyValues();
+            response = getResponseDto("Success", HttpStatus.OK, res);
+        } catch (ResponseStatusException e){
+            log.error(e.getReason());
+            response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
+        } catch (Exception e){
+            e.printStackTrace();
+            response = getResponseDto("Error occurred while fetching channels ", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response.toResponseEntity();
+    }
+
+
     @Override
     public ResponseEntity<ResponseRecord> findChannels(String country) {
         ResponseRecord response;
@@ -93,27 +113,12 @@ public class PaymentServiceImpl implements PaymentService {
         return new ResponseEntity<>(response, HttpStatus.valueOf(response.statusCode()));
     }
 
-    private static boolean filterNetworks(String activeChannelId, Map<String, Object> item) {
-        boolean isActive = item.containsKey("status")
-                && item.getOrDefault("status", "inactive")
-                .toString().equalsIgnoreCase("active")
-                && item.containsKey("channelIds");
-
-        if (isNotNullOrEmpty(activeChannelId)) {
-            isActive = isActive && item.getOrDefault("channelIds", "")
-                    .toString().contains(activeChannelId);
-        }
-
-        return isActive;
-    }
-
-
     @Override
-    public ResponseEntity<ResponseRecord> validateAccount(Map<String, String> params, PRDestinationDTO prDestinationDTO) {
+    public ResponseEntity<ResponseRecord> validateAccount(PRDestinationDTO prDestinationDTO) {
         ResponseRecord response;
         try {
-            log.info("Validating recipient account before submitting payment request -> {}", params);
-            var res = yellowCardService.resolveBankAccount(params,prDestinationDTO).data();
+//            log.info("Validating recipient account before submitting payment request -> {}", );
+            var res = yellowCardService.resolveBankAccount(prDestinationDTO).data();
 
             response = getResponseDto("Success!",HttpStatus.OK,res);
 
@@ -134,19 +139,32 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             log.info("Building payload for submitting payment request -> {}",paymentRequestDTO);
 
-            validatePayment(paymentRequestDTO);
+            validatePaymentPayload(paymentRequestDTO);
             var payment = Payment
                     .builder()
                     .channelId(paymentRequestDTO.getChannelId())
                     .sequenceId(String.valueOf(UUID.randomUUID()))
-                    .amount(paymentRequestDTO.getLocalAmount())
+                    .name(paymentRequestDTO.getSender().getName())
+                    .recipientName(paymentRequestDTO.getDestination().getAccountName())
+                    .amount((paymentRequestDTO.getLocalAmount() != null && !paymentRequestDTO.getLocalAmount().isEmpty())
+                            ? paymentRequestDTO.getLocalAmount() + " (Local)" : paymentRequestDTO.getAmount() + " (USD)")
+                    .paymentStatus(PaymentStatus.Pending)
+                    .transactionType(paymentRequestDTO.getTransactionType())
                     .forceAccept(paymentRequestDTO.getForceAccept())
+                    .createdAt(ZonedDateTime.now())
                     .build();
 
-//            var paymentRecord = paymentRepository.save(payment);
-//            paymentRequestDTO.setSequenceId(paymentRecord.getSequenceId());
-
-            var res = yellowCardService.submitPaymentRequest(paymentRequestDTO).data();
+            payment = paymentRepository.saveAndFlush(payment);
+            log.info("Successfully saved to database");
+            paymentRequestDTO.setSequenceId(payment.getSequenceId());
+            Object res = null;
+            try{
+                res = yellowCardService.submitPaymentRequest(paymentRequestDTO).data();
+            }catch (Exception e){
+                payment.setPaymentStatus(PaymentStatus.Error);
+                paymentRepository.save(payment);
+                log.error(e.getMessage());
+            }
             response = getResponseDto("Success",HttpStatus.OK,res);
 
         } catch (ResponseStatusException e) {
@@ -160,11 +178,42 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public ResponseEntity<ResponseRecord> approvePaymentRequest(Boolean accept) {
+    public ResponseEntity<ResponseRecord> filterTransactions (Map<String, String> params) {
         ResponseRecord response;
         try {
-            log.info("Payment request approval stage request -> {}", accept);
-            String sequenceId = "";
+            if (params == null || params.getOrDefault("paginate","false").equalsIgnoreCase("false")) {
+                String searchValue = params != null ? params.getOrDefault("search","")
+                        : "";
+
+                var res = paymentRepository.findPaymentByNameContaining(searchValue);
+                response = getResponseDto("Success!",HttpStatus.OK,res);
+            } else {
+                response = getResponseDto("Succhess",HttpStatus.OK);
+            }
+
+        } catch (ResponseStatusException e) {
+            log.error(e.getReason());
+            response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            response = getResponseDto("Error occurred while submitting payment request ", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response.toResponseEntity();
+    }
+
+    @Override
+    public Page filterTransactionsForUI(Pageable pageable, String search) {
+        var res = paymentRepository.findAll();
+        log.info("All : \n{}", res);
+        return paymentRepository.findPagedPaymentByNameContaining(search,pageable);
+    }
+
+    @Override
+    public ResponseEntity<ResponseRecord> approvePaymentRequest(String sequenceId, Boolean accept) {
+        ResponseRecord response;
+        try {
+            log.info("Payment approval stage request -> {}", accept);
+//            String paymentId = paymentRepository.findBySequenceId(sequenceId).getPaymentId();
             Map<String,String> payment = (Map<String, String>) yellowCardService.lookUpPaymentBySequenceId(sequenceId).data();
             String paymentId = payment.containsKey("id") ? payment.getOrDefault("paymentId","") : null;
 
@@ -175,7 +224,34 @@ public class PaymentServiceImpl implements PaymentService {
                 var res = yellowCardService.denyPaymentRequest(paymentId).data();
                 response = getResponseDto("Success",HttpStatus.OK,res);
             }
-        }catch (ResponseStatusException e) {
+        } catch (ResponseStatusException e) {
+            log.error(e.getReason());
+            response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            response = getResponseDto("Error occurred while submitting payment request ", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response.toResponseEntity();
+    }
+
+    @Override
+    public ResponseEntity<ResponseRecord> acceptCollectionRequest(String sequenceId,Boolean approve) {
+        ResponseRecord response;
+        try {
+            log.info("Withdrawal initiation stage request by sequenceId-> {}", sequenceId);
+            Map<String,String> payment = (Map<String, String>) yellowCardService.lookUpPaymentBySequenceId(sequenceId).data();
+            String paymentId = payment.containsKey("id") ? payment.getOrDefault("paymentId","") : null;
+
+            if (approve) {
+                var res = yellowCardService.acceptCollectionRequest(paymentId).data();
+                response = getResponseDto("Success",HttpStatus.OK,res);
+            } else {
+                var res = yellowCardService.denyCollectionRequest(paymentId).data();
+                response = getResponseDto("Success",HttpStatus.OK,res);
+            }
+
+
+        }  catch (ResponseStatusException e) {
             log.error(e.getReason());
             response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
         } catch (Exception e) {
@@ -186,16 +262,22 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
-    public void validatePayment(PaymentRequestDTO paymentRequestDTO) {
+
+    public void validatePaymentPayload(PaymentRequestDTO paymentRequestDTO) {
         log.info("Validating payment payload");
         /**
          * Validating by business logic
          */
         try {
-            if (!isNotNullOrEmpty(paymentRequestDTO.getAmount()) && !isNotNullOrEmpty(paymentRequestDTO.getLocalAmount())){
+
+//            if (!isValidDateFormat(paymentRequestDTO.getSender().getDob())) {
+//                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Date of birth pattern is wrongly formatted");
+//            }
+
+            if (isNotNullOrEmpty(paymentRequestDTO.getAmount()) && isNotNullOrEmpty(paymentRequestDTO.getLocalAmount())){
                 paymentRequestDTO.setAmount(null);
 
-            } else if (isNotNullOrEmpty(paymentRequestDTO.getAmount()) && isNotNullOrEmpty(paymentRequestDTO.getLocalAmount())){
+            } else if (!isNotNullOrEmpty(paymentRequestDTO.getAmount()) && !isNotNullOrEmpty(paymentRequestDTO.getLocalAmount())){
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Both USD and local amounts cannot be null");
             }
 
@@ -213,7 +295,7 @@ public class PaymentServiceImpl implements PaymentService {
                 }
             }
 
-            if (paymentRequestDTO.getCustomerType().equals(CustomerType.business)) {
+            if (paymentRequestDTO.getCustomerType().equals(CustomerType.institution)) {
                 if (!isNotNullOrEmpty(paymentRequestDTO.getSender().getBusinessId()) ||
                         !isNotNullOrEmpty(paymentRequestDTO.getSender().getBusinessName())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Sender information cannot be empty for business owner");
@@ -258,6 +340,19 @@ public class PaymentServiceImpl implements PaymentService {
 
     }
 
+    private static boolean filterNetworks(String activeChannelId, Map<String, Object> item) {
+        boolean isActive = item.containsKey("status")
+                && item.getOrDefault("status", "inactive")
+                .toString().equalsIgnoreCase("active")
+                && item.containsKey("channelIds");
+
+        if (isNotNullOrEmpty(activeChannelId)) {
+            isActive = isActive && item.getOrDefault("channelIds", "")
+                    .toString().contains(activeChannelId);
+        }
+
+        return isActive;
+    }
 
 }
 

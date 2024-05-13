@@ -1,6 +1,7 @@
 package com.angellos.payment.external;
 
 import com.angellos.payment.config.YellowCardProperties;
+import com.angellos.payment.dto.CollectionRequestDTO;
 import com.angellos.payment.dto.PRDestinationDTO;
 import com.angellos.payment.dto.PaymentRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -101,16 +103,12 @@ public class YellowCardService {
      * It returns the account details for a user
      * @return ResponseRecord
      */
-    public ResponseRecord resolveBankAccount(Map<String,String> requestParams, PRDestinationDTO prDestinationDTO) {
+    public ResponseRecord resolveBankAccount(PRDestinationDTO prDestinationDTO) {
         /**
          * Compiling the Request Params
          */
         Map params = new HashMap<>();
-        params.put("path", "/business/details/bank");
-
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("networkId", requestParams.get("networkId"));
-        requestBody.put("accountNumber", requestParams.get("accountNumber"));
+        params.put("path", "/business/details/"+prDestinationDTO.getAccountType());
 
         var response = yellowCardRequest(params, HttpMethod.POST,prDestinationDTO);
 
@@ -119,8 +117,8 @@ public class YellowCardService {
 
 
     /**
-     * This method is used to submit payment request from sandbox api
-     * It returns approval
+     * This method is used to submit payment request to sandbox api
+     * It returns...
      * @return ResponseRecord
      */
     public ResponseRecord submitPaymentRequest(PaymentRequestDTO paymentRequestDTO) {
@@ -131,6 +129,23 @@ public class YellowCardService {
         params.put("path", "/business/payments");
 
         var response = yellowCardRequest(params, HttpMethod.POST,paymentRequestDTO);
+
+        return getYellowCardResponse(response);
+    }
+
+    /**
+     * This method is used to submit payment request from sandbox api
+     * It returns
+     * @return ResponseRecord
+     */
+    public ResponseRecord submitCollectionRequest(CollectionRequestDTO collectionRequestDTO) {
+        /**
+         * Compiling the Request Params
+         */
+        Map params = new HashMap<>();
+        params.put("path", "/business/collections");
+
+        var response = yellowCardRequest(params, HttpMethod.POST,collectionRequestDTO);
 
         return getYellowCardResponse(response);
     }
@@ -219,6 +234,35 @@ public class YellowCardService {
         return getYellowCardResponse(response);
     }
 
+    /**
+     * This method is used to accept collection request from sandbox api
+     * It executes withdrawal
+     * @return ResponseRecord
+     */
+    public ResponseRecord acceptCollectionRequest(String paymentId) {
+        /**
+         * Compiling the Request Params
+         */
+        Map params = new HashMap<>();
+        params.put("path", "/business/collections/" + paymentId + "/accept");
+
+        var response = yellowCardRequest(params, HttpMethod.POST,null);
+
+        return getYellowCardResponse(response);
+    }
+
+    public ResponseRecord denyCollectionRequest(String paymentId) {
+        /**
+         * Compiling the Request Params
+         */
+        Map params = new HashMap<>();
+        params.put("path", "/business/collections/" + paymentId + "/deny");
+
+        var response = yellowCardRequest(params, HttpMethod.POST,null);
+
+        return getYellowCardResponse(response);
+    }
+
     public Map yellowCardRequest(Map<String, Object> params, HttpMethod requestMethod, Object body){
         try{
             /**
@@ -267,6 +311,7 @@ public class YellowCardService {
             return objectMapper.convertValue(err, Map.class);
         }
     }
+
 
 
 }

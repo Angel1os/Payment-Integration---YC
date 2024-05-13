@@ -3,17 +3,20 @@ package com.angellos.payment.controller;
 import com.angellos.payment.dto.PRDestinationDTO;
 import com.angellos.payment.dto.PaymentRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
+import com.angellos.payment.enums.CustomerType;
 import com.angellos.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 /**
  * This class focuses on holding all the endpoints for initiating payments.
- * That is it accepts a list of payment details and then interface with Yellow Card
+ * That is it accepts payment details and then interface with Yellow Card
  *
  * @author  Prince Ah
  * @createdAt 9th May 2024
@@ -29,16 +32,13 @@ public class PaymentController {
     PaymentService paymentService;
 
     /**
-     * Final endpoint
+     * This gives us active channels supported by the country
+     * @return
      */
-    @PostMapping("/submit")
-    ResponseRecord submitPayment(@RequestBody @Valid PaymentRequestDTO paymentRequestDTO){
-        return paymentService.submitPaymentRequest(paymentRequestDTO).getBody();
+    @GetMapping("/countries")
+    ResponseRecord getCountries () {
+        return paymentService.getCountries().getBody();
     }
-
-    /**
-     * Steps to make a payment request
-     */
 
     /**
      * This gives us active channels supported by the country
@@ -48,6 +48,15 @@ public class PaymentController {
     @GetMapping("/channels")
     ResponseRecord getChannels(@RequestParam (defaultValue = "") String country) {
         return paymentService.findChannels(country).getBody();
+    }
+
+    /**
+     * This gives various customer types
+     * @return
+     */
+    @GetMapping("/customer-types")
+    List getCustomerTypes() {
+        return Arrays.stream(CustomerType.values()).toList();
     }
 
     /**
@@ -63,32 +72,55 @@ public class PaymentController {
 
     /**
      * This gives validates recipient account before submitting request
-     * @param params
+     * @param prDestinationDTO
      * @return
      */
-    @PostMapping("/validate-account")
-    ResponseRecord validateRecipientAccount(@RequestParam Map<String,String> params, @RequestBody PRDestinationDTO prDestinationDTO){
-        return paymentService.validateAccount(params,prDestinationDTO).getBody();
+    @PostMapping("/validate")
+    ResponseRecord validateRecipientAccount(@RequestBody PRDestinationDTO prDestinationDTO){
+        return paymentService.validateAccount(prDestinationDTO).getBody();
     }
 
     /**
-     * This approves or deny payment after submitting request
+     * This submits payment for approval
      * @param
      * @return
      */
-    @PostMapping("/submit-approval")
-    ResponseRecord submitPaymentForApproval(@RequestBody @Valid PaymentRequestDTO paymentRequestDTO){
+    @PostMapping("/submit")
+    ResponseRecord submitPaymentRequest(@RequestBody @Valid PaymentRequestDTO paymentRequestDTO){
         return paymentService.submitPaymentRequest(paymentRequestDTO).getBody();
     }
 
     /**
-     * This approves or deny payment after submitting request
-     * @param accept
+     * This retrieves transactions from local db for approval
+     * @param
      * @return
      */
-    @PostMapping("/approve")
-    ResponseRecord approvePaymentRequest(@RequestParam(defaultValue = "false") Boolean accept){
-        return paymentService.approvePaymentRequest(accept).getBody();
+    @GetMapping("/transactions")
+    ResponseRecord findTransactions(@RequestParam Map<String,String> params){
+        return paymentService.filterTransactions(params).getBody();
+    }
+
+
+    /**
+     * This approves or deny payment after submitting request
+     * @param approve
+     * @return
+     */
+    @PostMapping("/{sequenceId}/approve")
+    ResponseRecord approvePaymentRequest(@PathVariable(value = "sequenceId") String sequenceId,
+                                         @RequestParam(defaultValue = "true") Boolean approve){
+        return paymentService.approvePaymentRequest(sequenceId, approve).getBody();
+    }
+
+    /**
+     * This initiates a withdrawal request
+     * @param sequenceId
+     * @return
+     */
+    @PostMapping("/{sequenceId}/collection")
+    ResponseRecord acceptCollectionRequest(@PathVariable(value = "sequenceId") String sequenceId,
+                                           @RequestParam(defaultValue = "true") Boolean approve){
+        return paymentService.acceptCollectionRequest(sequenceId,approve).getBody();
     }
 
 

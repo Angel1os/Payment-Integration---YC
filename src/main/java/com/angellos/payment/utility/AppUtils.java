@@ -8,6 +8,8 @@ import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class AppUtils {
     public static ResponseRecord getResponseDto(String message, HttpStatus status){
@@ -55,11 +57,9 @@ public class AppUtils {
      * This method is used to transform the Ghana.Gov response to ResponseRecord
      * @param response
      * @return  ResponseRecord
-     * @author Ebenezer N.
-     * @createdAt 28th Sep 2023
-     * @modified
-     * @modifiedBy
-     * @modifiedAt
+     * @author Prince Ah
+     * @createdAt 13th May 2024
+
      */
     public static ResponseRecord getYellowCardResponse(Map response) {
         if(response == null || response.isEmpty()){
@@ -98,10 +98,7 @@ public class AppUtils {
      * @param isStatus  boolean to indicate if it should return HttpStatus or String
      * @return Object (either HttpStatus or String)
      * @author Ebenezer N.
-     * @createdAt 28th Sep 2023
-     * @modified
-     * @modifiedBy
-     * @modifiedAt
+     * @createdAt 13th May 2024
      */
     public static Object getYellowCardStatus(Object status, boolean isStatus) {
         try{
@@ -140,7 +137,7 @@ public class AppUtils {
                 }
             }
 
-        }catch (Exception e){
+        } catch (Exception e){
             e.printStackTrace();
         }
 
@@ -164,4 +161,17 @@ public class AppUtils {
         });
         return sj;
     }
+
+
+        private static final String DATE_PATTERN = "^(0[1-9]|1[0-2])/(0[1-9]|[1-2][0-9]|3[0-1])/\\d{4}$";
+
+        public static boolean isValidDateFormat(String dob) {
+            Pattern pattern = Pattern.compile(DATE_PATTERN);
+
+            Matcher matcher = pattern.matcher(dob);
+
+            return matcher.matches();
+        }
+
+
 }
