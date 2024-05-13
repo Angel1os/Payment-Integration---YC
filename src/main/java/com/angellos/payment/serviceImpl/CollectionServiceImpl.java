@@ -5,6 +5,7 @@ import com.angellos.payment.dto.CollectionRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
 import com.angellos.payment.enums.CustomerType;
 import com.angellos.payment.external.YellowCardService;
+import com.angellos.payment.repository.PaymentRepository;
 import com.angellos.payment.service.CollectionService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,11 +27,37 @@ import static com.angellos.payment.utility.AppUtils.isNotNullOrEmpty;
 @AllArgsConstructor
 public class CollectionServiceImpl implements CollectionService {
 
-    YellowCardService yellowCardService;
+    private final PaymentRepository paymentRepository;
 
-    YellowCardProperties yellowCardProperties;
+    private final YellowCardService yellowCardService;
 
-    RestTemplate restTemplate;
+    @Override
+    public ResponseEntity<ResponseRecord> acceptCollectionRequest(String sequenceId, Boolean approve) {
+        ResponseRecord response;
+        try {
+            log.info("Withdrawal initiation stage request by sequenceId-> {}", sequenceId);
+            Map<String,String> payment = (Map<String, String>) yellowCardService.lookUpPaymentBySequenceId(sequenceId).data();
+            String paymentId = payment.containsKey("id") ? payment.getOrDefault("paymentId","") : null;
+
+            if (approve) {
+                var res = yellowCardService.acceptCollectionRequest(paymentId).data();
+                response = getResponseDto("Success",HttpStatus.OK,res);
+            } else {
+                var res = yellowCardService.denyCollectionRequest(paymentId).data();
+                response = getResponseDto("Success",HttpStatus.OK,res);
+            }
+
+
+        }  catch (ResponseStatusException e) {
+            log.error(e.getReason());
+            response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            response = getResponseDto("Error occurred while submitting payment request ", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        return response.toResponseEntity();
+    }
+
 
     @Override
     public ResponseEntity<ResponseRecord> submitCollectionRequest(CollectionRequestDTO collectionRequestDTO) {
@@ -50,6 +77,7 @@ public class CollectionServiceImpl implements CollectionService {
         }
         return response.toResponseEntity();
     }
+
 
     private void validateCollectionPayload(CollectionRequestDTO collectionRequestDTO) {
         log.info("Validating collection payload");

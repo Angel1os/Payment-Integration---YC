@@ -10,5 +10,8 @@ public interface CollectionService {
 
     ResponseEntity<ResponseRecord> submitCollectionRequest(CollectionRequestDTO collectionRequestDTO);
 
+    ResponseEntity<ResponseRecord> acceptCollectionRequest(String sequenceId,Boolean approve);
+
+
 
 }

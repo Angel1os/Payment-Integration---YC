@@ -169,7 +169,7 @@ function setRequiredProperty(inputField = HTMLInputElement, on = true) {
     else if(!on && inputField.hasAttribute("required")){
         // If the required attribute is present, remove it
         inputField.removeAttribute("required");
-        inputField.val("");
+        inputField.value  = "";
     }
 }
 
@@ -268,8 +268,8 @@ $(document).ready(function () {
             makeInputsRequired("#institution_customer_type", true);
         }
         else if(type.toUpperCase() === "RETAIL"){
-            $("#institution_customer_type").addClass("d-none");
             $("#retail_customer_type").removeClass("d-none");
+            $("#institution_customer_type").addClass("d-none");
             makeInputsRequired("#retail_customer_type", true)
             makeInputsRequired("#institution_customer_type", false);
         }

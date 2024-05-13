@@ -57,4 +57,15 @@ public class CollectionController {
         return collectionService.submitCollectionRequest(collectionRequestDTO).getBody();
     }
 
+    /**
+     * This initiates a withdrawal request
+     * @param sequenceId
+     * @return
+     */
+    @PostMapping("/{sequenceId}")
+    ResponseRecord acceptCollectionRequest(@PathVariable(value = "sequenceId") String sequenceId,
+                                           @RequestParam(defaultValue = "true") Boolean approve){
+        return collectionService.acceptCollectionRequest(sequenceId,approve).getBody();
+    }
+
 }

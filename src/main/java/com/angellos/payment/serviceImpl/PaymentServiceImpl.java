@@ -217,13 +217,26 @@ public class PaymentServiceImpl implements PaymentService {
             Map<String,String> payment = (Map<String, String>) yellowCardService.lookUpPaymentBySequenceId(sequenceId).data();
             String paymentId = payment.containsKey("id") ? payment.getOrDefault("paymentId","") : null;
 
-            if (accept) {
-                var res = yellowCardService.acceptPaymentRequest(paymentId).data();
-                response = getResponseDto("Success",HttpStatus.OK,res);
+            var existingRecord = paymentRepository.findBySequenceId(sequenceId);
+            Payment savedRecord;
+            Object res;
+            if (isNotNullOrEmpty(existingRecord) && isNotNullOrEmpty(paymentId)) {
+                if (accept) {
+                    res = yellowCardService.acceptPaymentRequest(paymentId).data();
+                    existingRecord.setPaymentStatus(PaymentStatus.Accepted);
+
+                } else {
+                    res = yellowCardService.denyPaymentRequest(paymentId).data();
+                    existingRecord.setPaymentStatus(PaymentStatus.Denied);
+                }
+                savedRecord = paymentRepository.save(existingRecord);
+                log.info("Transaction for sequence -> {} updated -> {}",sequenceId, savedRecord);
+                response = getResponseDto("No record for transaction found",HttpStatus.OK,res);
+
             } else {
-                var res = yellowCardService.denyPaymentRequest(paymentId).data();
-                response = getResponseDto("Success",HttpStatus.OK,res);
+                response = getResponseDto("No record for transaction found",HttpStatus.OK);
             }
+
         } catch (ResponseStatusException e) {
             log.error(e.getReason());
             response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
