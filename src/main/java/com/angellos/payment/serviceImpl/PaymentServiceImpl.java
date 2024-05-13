@@ -63,7 +63,7 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             log.info("Querying channels by country -> {}",country);
             Map<String, Object> res = (Map<String, Object>) yellowCardService.getChannels(country).data();
-            if (isNotNullOrEmpty(res)) {
+            if (isNotNullOrEmpty(res.get("channels"))) {
                 List<Map<String, Object>> channels = (List<Map<String, Object>>) res.get("channels");
                 List<Map<String, Object>> filteredChannels = channels.stream()
                         .filter(item -> {
@@ -140,6 +140,12 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
+
+    @Override
+    public void deleteAllNullData() {
+        paymentRepository.deletePaymentByPaymentStatusIsNullOrAmountIsNull();
+    }
+
     @Override
     public ResponseEntity<ResponseRecord> submitPaymentRequest(PaymentRequestDTO paymentRequestDTO) {
         ResponseRecord response;
@@ -164,15 +170,15 @@ public class PaymentServiceImpl implements PaymentService {
             payment = paymentRepository.saveAndFlush(payment);
             log.info("Successfully saved to database");
             paymentRequestDTO.setSequenceId(payment.getSequenceId());
-            Object res = null;
-            try{
-                res = yellowCardService.submitPaymentRequest(paymentRequestDTO).data();
-            }catch (Exception e){
-                payment.setPaymentStatus(PaymentStatus.Error);
+            ResponseRecord res = yellowCardService.submitPaymentRequest(paymentRequestDTO);
+            String message = "Success";
+            if(HttpStatus.valueOf(res.statusCode()).isError()){
+                payment.setPaymentStatus(PaymentStatus.Failed);
                 paymentRepository.save(payment);
-                log.error(e.getMessage());
+                message = res.message();
+                log.error(message);
             }
-            response = getResponseDto("Success",HttpStatus.OK,res);
+            response = getResponseDto(message,HttpStatus.OK,res);
 
         } catch (ResponseStatusException e) {
             log.error(e.getReason());

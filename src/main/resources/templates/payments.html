@@ -65,7 +65,7 @@
       </tr>
       </thead>
       <tbody>
-      <tr th:each="payment: ${payments}">
+      <tr th:each="payment: ${payments}" th:if="${payment.transactionType != null && payment.amount != null && !#strings.equalsIgnoreCase(payment.amount, '(USD)')}">
         <td th:text="${payment.sequenceId}" class="d-none">ID</td>
         <td th:text="${payment.getCreatedAtString()}">Date</td>
         <td th:text="${payment.transactionType}">Transaction Type</td>
@@ -74,7 +74,7 @@
         <td th:text="${payment.amount}">Amount</td>
         <td th:text="${payment.paymentStatus}">Status</td>
         <td>
-          <th:block th:unless="${#strings.equalsIgnoreCase(payment.paymentStatus, 'Pending')} OR ${#strings.equalsIgnoreCase(payment.paymentStatus, 'ERROR')}">
+          <th:block th:if="${#strings.equalsIgnoreCase(payment.paymentStatus, 'Pending')}">
             <a th:href="@{/api/v1/yc/payments/{id}/approve(id=${payment.sequenceId}, approve=true)}" class="btn btn-primary accept"
                style="alignment: center; "
                th:data-confirm-accept="|Are you sure you want to Accept this transaction: ${payment.name} - ${payment.amount}?|"

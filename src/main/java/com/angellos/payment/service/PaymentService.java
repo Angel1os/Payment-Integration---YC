@@ -25,6 +25,10 @@ public interface PaymentService {
 
     Page filterTransactionsForUI(Pageable pageable, String search);
 
+
+    void deleteAllNullData();
+
+
     ResponseEntity<ResponseRecord> approvePaymentRequest(String sequenceId, Boolean accept);
 
     ResponseEntity<ResponseRecord> acceptCollectionRequest(String sequenceId,Boolean approve);

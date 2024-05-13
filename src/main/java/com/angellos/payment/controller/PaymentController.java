@@ -50,12 +50,15 @@ public class PaymentController {
         return paymentService.findChannels(country).getBody();
     }
 
+
+
     /**
      * This gives various customer types
      * @return
      */
     @GetMapping("/customer-types")
     List getCustomerTypes() {
+        paymentService.deleteAllNullData();
         return Arrays.stream(CustomerType.values()).toList();
     }
 
