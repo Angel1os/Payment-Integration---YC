@@ -3,7 +3,9 @@ package com.angellos.payment.serviceImpl;
 import com.angellos.payment.config.YellowCardProperties;
 import com.angellos.payment.dto.CollectionRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
+import com.angellos.payment.entity.Payment;
 import com.angellos.payment.enums.CustomerType;
+import com.angellos.payment.enums.PaymentStatus;
 import com.angellos.payment.external.YellowCardService;
 import com.angellos.payment.repository.PaymentRepository;
 import com.angellos.payment.service.CollectionService;
@@ -65,8 +67,22 @@ public class CollectionServiceImpl implements CollectionService {
         try {
             log.info("Building payload for submitting payment request -> {}",collectionRequestDTO);
             validateCollectionPayload(collectionRequestDTO);
+
             var res = yellowCardService.submitCollectionRequest(collectionRequestDTO);
-            response = getResponseDto("Success",HttpStatus.OK,res);
+            var existingRecord = paymentRepository.findBySequenceId(collectionRequestDTO.getSequenceId());
+
+            if (res.statusCode() == 200) {
+                existingRecord.setPaymentStatus(PaymentStatus.Completed);
+                var savedRecord = paymentRepository.saveAndFlush(existingRecord);
+                log.info("Transaction for sequence -> {} updated -> {}",collectionRequestDTO.getSequenceId(), savedRecord);
+                response = getResponseDto("Success",HttpStatus.OK,res);
+
+            } else {
+                existingRecord.setPaymentStatus(PaymentStatus.Failed);
+                var savedRecord = paymentRepository.saveAndFlush(existingRecord);
+                log.info("Transaction for sequence -> {} updated -> {}",collectionRequestDTO.getSequenceId(), savedRecord);
+                response = getResponseDto("Success",HttpStatus.OK,res);
+            }
 
         } catch (ResponseStatusException e) {
             log.error(e.getReason());

@@ -63,15 +63,19 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             log.info("Querying channels by country -> {}",country);
             Map<String, Object> res = (Map<String, Object>) yellowCardService.getChannels(country).data();
-            List<Map<String, Object>> channels = (List<Map<String, Object>>) res.get("channels");
-            List<Map<String, Object>> filteredChannels = channels.stream()
-                    .filter(item -> {
-                        boolean isActive = item.containsKey("status")
-                                && item.getOrDefault("status", "inactive")
-                                .toString().equalsIgnoreCase("active");
-                        return isActive;
-                    }).collect(Collectors.toList());
-            response = getResponseDto("Success", HttpStatus.OK, filteredChannels);
+            if (isNotNullOrEmpty(res)) {
+                List<Map<String, Object>> channels = (List<Map<String, Object>>) res.get("channels");
+                List<Map<String, Object>> filteredChannels = channels.stream()
+                        .filter(item -> {
+                            boolean isActive = item.containsKey("status")
+                                    && item.getOrDefault("status", "inactive")
+                                    .toString().equalsIgnoreCase("active");
+                            return isActive;
+                        }).collect(Collectors.toList());
+                response = getResponseDto("Success", HttpStatus.OK, filteredChannels);
+            } else {
+                response = getResponseDto("No channels", HttpStatus.OK);
+            }
 
         } catch (ResponseStatusException e){
             log.error(e.getReason());
@@ -89,6 +93,9 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             log.info("Filtering supported network by active channel id -> {}",activeChannelId);
             Map<String, Object> res = (Map<String, Object>) yellowCardService.getNetworks().data();
+            if (isNotNullOrEmpty(res)) {
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"No networks at the moment");
+            }
             List<Map<String, Object>> networks = (List<Map<String, Object>>) res.get("networks");
             if (isNotNullOrEmpty(activeChannelId)) {
                 List<Map<String, Object>> filteredNetworks = networks.stream()
@@ -117,7 +124,7 @@ public class PaymentServiceImpl implements PaymentService {
     public ResponseEntity<ResponseRecord> validateAccount(PRDestinationDTO prDestinationDTO) {
         ResponseRecord response;
         try {
-//            log.info("Validating recipient account before submitting payment request -> {}", );
+            log.info("Validating recipient account before submitting payment request -> {}", prDestinationDTO);
             var res = yellowCardService.resolveBankAccount(prDestinationDTO).data();
 
             response = getResponseDto("Success!",HttpStatus.OK,res);
@@ -204,7 +211,6 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     public Page filterTransactionsForUI(Pageable pageable, String search) {
         var res = paymentRepository.findAll();
-        log.info("All : \n{}", res);
         return paymentRepository.findPagedPaymentByNameContaining(search,pageable);
     }
 
