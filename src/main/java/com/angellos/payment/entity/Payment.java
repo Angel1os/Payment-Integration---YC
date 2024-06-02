@@ -1,12 +1,13 @@
 package com.angellos.payment.entity;
 
+import com.angellos.payment.dto.PRDestinationDTO;
+import com.angellos.payment.dto.PRSenderDTO;
+import com.angellos.payment.enums.CustomerType;
 import com.angellos.payment.enums.PaymentStatus;
 import com.angellos.payment.enums.TransactionType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -27,6 +28,8 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    private String paymentCode;
+
     private String channelId;
 
     private String sequenceId;
@@ -36,6 +39,14 @@ public class Payment {
     private String recipientName;
 
     private String amount;
+
+    private String reason;
+
+    private UUID senderId;
+
+    private UUID destinationId;
+
+    private CustomerType customerType;
 
     private PaymentStatus paymentStatus;
 
@@ -48,6 +59,8 @@ public class Payment {
 
     @UpdateTimestamp
     private ZonedDateTime updatedAt = ZonedDateTime.now();
+
+
 
     @PrePersist
     public void prePersist(){

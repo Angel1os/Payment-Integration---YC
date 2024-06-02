@@ -109,10 +109,11 @@ public class PaymentController {
      * @param approve
      * @return
      */
-    @PostMapping("/{sequenceId}/approve")
+    @GetMapping("/{sequenceId}/approve")
     ResponseRecord approvePaymentRequest(@PathVariable(value = "sequenceId") String sequenceId,
                                          @RequestParam(defaultValue = "true") Boolean approve){
         return paymentService.approvePaymentRequest(sequenceId, approve).getBody();
+
     }
 
     /**

@@ -25,6 +25,7 @@ public class SpringPaymentIntegrationApplication {
             var auth = YellowCardAuth.generateAuthorizationHeaders("/business/channels", RequestMethod.valueOf(HttpMethod.GET.name()), null);
             System.out.println("Authorization : " + auth);
             System.out.println("Date : " + ZonedDateTime.now());
+
     }
 
     @Bean

@@ -28,7 +28,6 @@ public interface PaymentService {
 
     void deleteAllNullData();
 
-
     ResponseEntity<ResponseRecord> approvePaymentRequest(String sequenceId, Boolean accept);
 
     ResponseEntity<ResponseRecord> acceptCollectionRequest(String sequenceId,Boolean approve);

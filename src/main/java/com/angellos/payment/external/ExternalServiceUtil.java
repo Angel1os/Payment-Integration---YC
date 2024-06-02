@@ -1,7 +1,6 @@
 package com.angellos.payment.external;
 
 import com.angellos.payment.dto.ResponseRecord;
-import com.angellos.payment.utility.YellowCardAuth;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,12 +33,10 @@ public class ExternalServiceUtil {
 
     private final RestTemplate restTemplate;
 
-    private final ModelMapper modelMapper;
-
     private final ObjectMapper mapper;
 
     /**
-     * This is a generic method to make  a request from the complaint service
+     * This is a generic method to make  a request from the yellow card service
      * @param type	This indicates the type of request (GET, POST ...)
      * @param serviceName	This is used mainly to throw a nice error message
      * @param path	This is the path for the request, the URI

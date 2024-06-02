@@ -24,7 +24,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
         """)
     void deleteByNullData();
 
-    @Modifying
+//    @Modifying
     void deletePaymentByPaymentStatusIsNullOrAmountIsNull();
 
     @Query("""

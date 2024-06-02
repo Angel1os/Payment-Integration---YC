@@ -1,35 +1,39 @@
 package com.angellos.payment.serviceImpl;
 
-import com.angellos.payment.config.YellowCardProperties;
 import com.angellos.payment.dto.PRDestinationDTO;
 import com.angellos.payment.dto.PaymentRequestDTO;
 import com.angellos.payment.dto.ResponseRecord;
+import com.angellos.payment.entity.PDestination;
+import com.angellos.payment.entity.PSender;
 import com.angellos.payment.entity.Payment;
-import com.angellos.payment.enums.CountriesCodes;
 import com.angellos.payment.enums.CustomerType;
 import com.angellos.payment.enums.PaymentStatus;
-import com.angellos.payment.enums.TransactionType;
 import com.angellos.payment.external.YellowCardService;
+import com.angellos.payment.repository.DestinationRepository;
 import com.angellos.payment.repository.PaymentRepository;
+import com.angellos.payment.repository.SenderRepository;
 import com.angellos.payment.service.PaymentService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.angellos.payment.enums.CountriesCodes.getKeyValues;
-import static com.angellos.payment.utility.AppUtils.*;
+import static com.angellos.payment.utility.AppUtils.getResponseDto;
+import static com.angellos.payment.utility.AppUtils.isNotNullOrEmpty;
 
 @Service
 @Slf4j
@@ -39,6 +43,12 @@ public class PaymentServiceImpl implements PaymentService {
     private final YellowCardService yellowCardService;
 
     private final PaymentRepository paymentRepository;
+
+    private final SenderRepository senderRepository;
+
+    private final DestinationRepository destinationRepository;
+
+    private final ModelMapper modelMapper;
 
     @Override
     public ResponseEntity<ResponseRecord> getCountries() {
@@ -76,7 +86,6 @@ public class PaymentServiceImpl implements PaymentService {
             } else {
                 response = getResponseDto("No channels", HttpStatus.OK);
             }
-
         } catch (ResponseStatusException e){
             log.error(e.getReason());
             response = getResponseDto(e.getReason(), HttpStatus.valueOf(e.getStatusCode().value()));
@@ -93,7 +102,8 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             log.info("Filtering supported network by active channel id -> {}",activeChannelId);
             Map<String, Object> res = (Map<String, Object>) yellowCardService.getNetworks().data();
-            if (isNotNullOrEmpty(res)) {
+//            if (isNotNullOrEmpty(res)) {
+            if (!isNotNullOrEmpty(res)) {
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,"No networks at the moment");
             }
             List<Map<String, Object>> networks = (List<Map<String, Object>>) res.get("networks");
@@ -107,7 +117,6 @@ public class PaymentServiceImpl implements PaymentService {
             } else {
                 response = getResponseDto("Success", HttpStatus.OK, networks);
             }
-
 
         } catch (ResponseStatusException e){
             log.error(e.getReason());
@@ -143,6 +152,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public void deleteAllNullData() {
+        paymentRepository.deleteByNullData();
         paymentRepository.deletePaymentByPaymentStatusIsNullOrAmountIsNull();
     }
 
@@ -153,14 +163,49 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("Building payload for submitting payment request -> {}",paymentRequestDTO);
 
             validatePaymentPayload(paymentRequestDTO);
+
+            String paymentCode;
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmm");
+            String timestamp = LocalDateTime.now().format(formatter);
+            paymentCode = "PC_" + timestamp;
+
+            var sender = PSender
+                    .builder()
+                    .paymentCode(paymentCode)
+                    .name(paymentRequestDTO.getSender().getName())
+                    .country(paymentRequestDTO.getSender().getCountry())
+                    .phone(paymentRequestDTO.getSender().getPhone())
+                    .address(paymentRequestDTO.getSender().getAddress())
+                    .dob(paymentRequestDTO.getSender().getDob())
+                    .email(paymentRequestDTO.getSender().getEmail())
+                    .idNumber(paymentRequestDTO.getSender().getIdNumber())
+                    .idType(paymentRequestDTO.getSender().getIdType())
+                    .businessId(paymentRequestDTO.getSender().getBusinessId())
+                    .businessName(paymentRequestDTO.getSender().getBusinessName())
+                    .createdAt(ZonedDateTime.now())
+                    .build();
+            sender = senderRepository.saveAndFlush(sender);
+
+            var destination = modelMapper.map(paymentRequestDTO.getDestination(), PDestination.class);
+            destination.setPaymentCode(paymentCode);
+            destination = destinationRepository.saveAndFlush(destination);
+
+
+
+
             var payment = Payment
                     .builder()
+                    .paymentCode(paymentCode)
                     .channelId(paymentRequestDTO.getChannelId())
                     .sequenceId(String.valueOf(UUID.randomUUID()))
                     .name(paymentRequestDTO.getSender().getName())
                     .recipientName(paymentRequestDTO.getDestination().getAccountName())
                     .amount((paymentRequestDTO.getLocalAmount() != null && !paymentRequestDTO.getLocalAmount().isEmpty())
                             ? paymentRequestDTO.getLocalAmount() + " (Local)" : paymentRequestDTO.getAmount() + " (USD)")
+                    .reason(paymentRequestDTO.getReason())
+                    .senderId(sender.getId())
+                    .destinationId(destination.getId())
+                    .customerType(paymentRequestDTO.getCustomerType())
                     .paymentStatus(PaymentStatus.Pending)
                     .transactionType(paymentRequestDTO.getTransactionType())
                     .forceAccept(paymentRequestDTO.getForceAccept())
@@ -168,17 +213,32 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
 
             payment = paymentRepository.saveAndFlush(payment);
-            log.info("Successfully saved to database");
+            log.info("Successfully saved transaction records into the database");
+
             paymentRequestDTO.setSequenceId(payment.getSequenceId());
             ResponseRecord res = yellowCardService.submitPaymentRequest(paymentRequestDTO);
-            String message = "Success";
-            if(HttpStatus.valueOf(res.statusCode()).isError()){
+            String message = "Successfully submitted payment request";
+            if (HttpStatus.valueOf(res.statusCode()).isError()) {
                 payment.setPaymentStatus(PaymentStatus.Failed);
                 paymentRepository.save(payment);
                 message = res.message();
                 log.error(message);
             }
-            response = getResponseDto(message,HttpStatus.OK,res);
+
+            if (paymentRequestDTO.getForceAccept()) {
+                ResponseRecord collectionResponse = yellowCardService.submitCollectionRequest(paymentRequestDTO);
+                if (collectionResponse.statusCode() == HttpStatus.OK.value()) {
+                    log.info("Collection Successful -> {}",collectionResponse);
+                    response = getResponseDto("Payment collection completed", HttpStatus.OK, collectionResponse);
+                } else {
+                    message = "Payment Collection Failed: " + collectionResponse.message();
+                    log.error(message);
+                    response = getResponseDto(message, HttpStatus.OK, res);
+                }
+            } else {
+                response = getResponseDto(message, HttpStatus.OK, res);
+            }
+
 
         } catch (ResponseStatusException e) {
             log.error(e.getReason());
@@ -231,19 +291,24 @@ public class PaymentServiceImpl implements PaymentService {
 
             var existingRecord = paymentRepository.findBySequenceId(sequenceId);
             Payment savedRecord;
-            Object res;
-            if (isNotNullOrEmpty(existingRecord) && isNotNullOrEmpty(paymentId)) {
+            ResponseRecord res;
+            /**
+             * Commented out API calls because of expiry
+             */
+//            if (isNotNullOrEmpty(existingRecord) && isNotNullOrEmpty(paymentId)) {
+            if (isNotNullOrEmpty(existingRecord) && isNotNullOrEmpty(existingRecord.getId())) {
                 if (accept) {
-                    res = yellowCardService.acceptPaymentRequest(paymentId).data();
+//                    res = yellowCardService.acceptPaymentRequest(paymentId);
                     existingRecord.setPaymentStatus(PaymentStatus.Accepted);
+//                    res.statusCode() == 200 ? yellowCardService.submitCollectionRequest()
 
                 } else {
-                    res = yellowCardService.denyPaymentRequest(paymentId).data();
+//                    res = yellowCardService.denyPaymentRequest(paymentId);
                     existingRecord.setPaymentStatus(PaymentStatus.Denied);
                 }
                 savedRecord = paymentRepository.save(existingRecord);
                 log.info("Transaction for sequence -> {} updated -> {}",sequenceId, savedRecord);
-                response = getResponseDto("No record for transaction found",HttpStatus.OK,res);
+                response = getResponseDto("Action performed on transaction",HttpStatus.OK,existingRecord);
 
             } else {
                 response = getResponseDto("No record for transaction found",HttpStatus.OK);
@@ -287,6 +352,12 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
 
+    /**
+     * Validates the PaymentRequestDTO object based on business logic and API data.
+     *
+     * @param paymentRequestDTO The DTO object containing payment request details.
+     * @throws ResponseStatusException If validation fails with a specific HTTP status code and message.
+     */
 
     public void validatePaymentPayload(PaymentRequestDTO paymentRequestDTO) {
         log.info("Validating payment payload");
@@ -299,6 +370,10 @@ public class PaymentServiceImpl implements PaymentService {
 //                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Date of birth pattern is wrongly formatted");
 //            }
 
+            /**
+             * Validate amount and local amount
+              */
+
             if (isNotNullOrEmpty(paymentRequestDTO.getAmount()) && isNotNullOrEmpty(paymentRequestDTO.getLocalAmount())){
                 paymentRequestDTO.setAmount(null);
 
@@ -306,6 +381,9 @@ public class PaymentServiceImpl implements PaymentService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Both USD and local amounts cannot be null");
             }
 
+            /**
+             * Validate sender information based on customer type
+             */
             if (paymentRequestDTO.getCustomerType().equals(CustomerType.retail)) {
                 if (!isNotNullOrEmpty(paymentRequestDTO.getSender().getName()) ||
                         !isNotNullOrEmpty(paymentRequestDTO.getSender().getCountry()) ||
@@ -328,7 +406,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
 
             /**
-             * Validating by api data
+             * Validate channel status and network support
              */
             log.info("Filtering channels by status and params -> {}",paymentRequestDTO.getChannelId());
             Map<String, Object> channelResponse = (Map<String, Object>) yellowCardService.getChannels(paymentRequestDTO.getCountry()).data();

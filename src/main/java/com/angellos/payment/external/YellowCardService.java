@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,9 +43,13 @@ public class YellowCardService {
         if (isNotNullOrEmpty(country)) {
             params.put("country", country);
         }
-        var response = yellowCardRequest(params, HttpMethod.GET,null);
+
+//        var response = yellowCardRequest(params, HttpMethod.GET,null);
+
+        var response = APISimulations.getChannels();
 
         return getYellowCardResponse(response);
+
     }
 
     /**
@@ -60,9 +63,13 @@ public class YellowCardService {
          */
         Map params = new HashMap<>();
         params.put("path", "/business/networks");
-        var response = yellowCardRequest(params, HttpMethod.GET,null);
+
+//        var response = yellowCardRequest(params, HttpMethod.GET,null);
+
+        var response = APISimulations.getNetworks();
 
         return getYellowCardResponse(response);
+
     }
 
 
@@ -128,7 +135,9 @@ public class YellowCardService {
         Map params = new HashMap<>();
         params.put("path", "/business/payments");
 
-        var response = yellowCardRequest(params, HttpMethod.POST,paymentRequestDTO);
+//        var response = yellowCardRequest(params, HttpMethod.POST,paymentRequestDTO);
+
+        var response = APISimulations.submitPaymentRequest();
 
         return getYellowCardResponse(response);
     }
@@ -138,6 +147,18 @@ public class YellowCardService {
      * It returns
      * @return ResponseRecord
      */
+    public ResponseRecord submitCollectionRequest(PaymentRequestDTO paymentRequestDTO) {
+        /**
+         * Compiling the Request Params
+         */
+        Map params = new HashMap<>();
+        params.put("path", "/business/collections");
+
+        var response = yellowCardRequest(params, HttpMethod.POST,paymentRequestDTO);
+
+        return getYellowCardResponse(response);
+    }
+
     public ResponseRecord submitCollectionRequest(CollectionRequestDTO collectionRequestDTO) {
         /**
          * Compiling the Request Params
